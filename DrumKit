@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture-to-Music Drum Kit</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        #videoCanvas {
+            border: 2px solid #333;
+            border-radius: 10px;
+            background: #000;
+            transform: scaleX(-1); /* Mirror/flip the camera horizontally */
+        }
+        .status {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .gesture-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+            margin: 10px 0;
+        }
+        .instructions {
+            text-align: left;
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .error {
+            color: #ff4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🥁 Gesture-to-Music Drum Kit</h1>
+       
+        <div class="instructions">
+            <h3>How to Use:</h3>
+            <ul>
+                <li><strong>✊ Fist</strong> → Snare Drum</li>
+                <li><strong>👆 Point (Index finger)</strong> → Hi-Hat</li>
+                <li><strong>✋ Open Palm</strong> → Kick/Bass Drum</li>
+                <li><strong>👋 Swipe (horizontal movement)</strong> → Cymbal/Crash</li>
+            </ul>
+            <p><strong>Setup:</strong> Create a 'sounds' folder with: snare.mp3, hihat.mp3, kick.mp3, crash.mp3</p>
+        </div>
+
+        <div class="status" id="status">Initializing...</div>
+        <div class="gesture-display" id="gestureDisplay">No gesture detected</div>
+       
+        <canvas id="videoCanvas" width="640" height="480"></canvas>
+    </div>
+
+    <!-- External Libraries via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose@0.0.7/dist/handpose.min.js"></script>
+
+    <script>
+        /**
+         * GESTURE-TO-MUSIC DRUM KIT - MAIN APPLICATION
+         *
+         * This application uses TensorFlow.js HandPose to detect hand gestures
+         * via webcam and maps them to drum sounds using Howler.js.
+         *
+         * REQUIRED SETUP:
+         * 1. Create a 'sounds' folder in the same directory as this HTML file
+         * 2. Add these drum sound files:
+         *    - snare.mp3 (for fist gesture)
+         *    - hihat.mp3 (for point/index gesture)  
+         *    - kick.mp3 (for open palm gesture)
+         *    - crash.mp3 (for swipe gesture)
+         *
+         * GESTURE DETECTION LOGIC:
+         * - Fist: All fingers curled (low finger distances)
+         * - Point: Index finger extended, others curled
+         * - Open Palm: All fingers extended (high finger distances)
+         * - Swipe: Horizontal hand movement above threshold
+         */
+
+        class GestureDrumKit {
+            constructor() {
+                // DOM elements
+                this.canvas = document.getElementById('videoCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.statusElement = document.getElementById('status');
+                this.gestureElement = document.getElementById('gestureDisplay');
+               
+                // Camera and ML model variables
+                this.video = null;
+                this.model = null;
+                this.isModelLoaded = false;
+               
+                // Gesture tracking variables
+                this.previousHand = null;
+                this.currentGesture = 'none';
+                this.lastGestureTime = 0;
+                this.gestureDebounceDelay = 350; // ms between same gesture triggers
+                this.lastSoundTime = 0;
+                this.soundCooldown = 350; // ms minimum between any sounds
+               
+                // Movement tracking for swipe detection
+                this.handHistory = [];
+                this.maxHistoryLength = 8; // Increased for better swipe detection
+                this.swipeThreshold = 80; // Increased threshold for more reliable swipe detection
+                this.swipeMinSpeed = 0.15; // Minimum speed for swipe (pixels per ms)
+               
+                // Sound system initialization
+                this.initSounds();
+               
+                // Start the application
+                this.init();
+            }
+
+            /**
+             * SOUND SYSTEM INITIALIZATION
+             *
+             * Creates Howl instances for each drum sound with overlapping support.
+             * Sounds should be placed in a 'sounds' folder relative to this HTML file.
+             *
+             * To add new sounds:
+             * 1. Add sound file to sounds folder
+             * 2. Create new Howl instance in this.sounds object
+             * 3. Add mapping in playSound() method
+             */
+            initSounds() {
+                this.sounds = {
+                    snare: new Howl({
+                        src: ['sounds/snare.mp3'],
+                        volume: 0.8,
+                        html5: true // Enables overlapping sounds
+                    }),
+                    hihat: new Howl({
+                        src: ['sounds/hihat.mp3'],
+                        volume: 0.6,
+                        html5: true
+                    }),
+                    kick: new Howl({
+                        src: ['sounds/kick.mp3'],
+                        volume: 1.0,
+                        html5: true
+                    }),
+                    crash: new Howl({
+                        src: ['sounds/crash.mp3'],
+                        volume: 0.7,
+                        html5: true
+                    })
+                };
+
+                // Test if sounds can load (optional error handling)
+                Object.keys(this.sounds).forEach(soundName => {
+                    this.sounds[soundName].on('loaderror', () => {
+                        console.warn(`Could not load ${soundName}.mp3 - check sounds folder`);
+                    });
+                });
+            }
+
+            /**
+             * APPLICATION INITIALIZATION
+             *
+             * Sets up webcam access and loads the HandPose ML model.
+             * Called automatically when class is instantiated.
+             */
+            async init() {
+                try {
+                    this.updateStatus('Setting up camera...');
+                    await this.setupCamera();
+                   
+                    this.updateStatus('Loading hand detection model...');
+                    await this.loadModel();
+                   
+                    this.updateStatus('Ready! Show your hands to the camera');
+                    this.startDetection();
+                   
+                } catch (error) {
+                    this.updateStatus(`Error: ${error.message}`, true);
+                    console.error('Initialization error:', error);
+                }
+            }
+
+            /**
+             * WEBCAM SETUP
+             *
+             * Requests access to user's camera and sets up video stream.
+             * Canvas is used to display the video feed and overlay debug info.
+             */
+            async setupCamera() {
+                // Create video element (not added to DOM, used for capture)
+                this.video = document.createElement('video');
+                this.video.width = 640;
+                this.video.height = 480;
+                this.video.autoplay = true;
+                this.video.playsInline = true;
+
+                // Request camera access
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user' // Front-facing camera
+                    }
+                });
+
+                this.video.srcObject = stream;
+               
+                // Wait for video to be ready
+                return new Promise(resolve => {
+                    this.video.onloadedmetadata = () => resolve();
+                });
+            }
+
+            /**
+             * ML MODEL LOADING
+             *
+             * Loads TensorFlow.js HandPose model for hand landmark detection.
+             * Model detects 21 key points on each hand for gesture analysis.
+             */
+            async loadModel() {
+                try {
+                    // Load the handpose model - wait for TensorFlow to be ready
+                    await tf.ready();
+                    this.model = await handpose.load();
+                    this.isModelLoaded = true;
+                } catch (error) {
+                    console.error('Error loading model:', error);
+                    this.updateStatus('Error loading hand detection model. Check internet connection.', true);
+                    throw error;
+                }
+            }
+
+            /**
+             * MAIN DETECTION LOOP
+             *
+             * Continuously captures video frames, detects hands, classifies gestures,
+             * and triggers appropriate drum sounds. Runs at ~60fps using requestAnimationFrame.
+             */
+            startDetection() {
+                const detectFrame = async () => {
+                    if (this.video && this.isModelLoaded) {
+                        // Save canvas state for mirroring
+                        this.ctx.save();
+                       
+                        // Mirror the canvas horizontally to match CSS transform
+                        this.ctx.scale(-1, 1);
+                        this.ctx.translate(-640, 0);
+                       
+                        // Draw current video frame to canvas (mirrored)
+                        this.ctx.drawImage(this.video, 0, 0, 640, 480);
+                       
+                        // Restore canvas state for other drawings
+                        this.ctx.restore();
+                       
+                        // Detect hands in current frame
+                        const predictions = await this.model.estimateHands(this.canvas);
+                       
+                        if (predictions.length > 0) {
+                            // Use first detected hand
+                            const hand = predictions[0];
+                           
+                            // Classify the gesture based on hand landmarks
+                            const gesture = this.classifyGesture(hand);
+                           
+                            // Update hand movement history for swipe detection
+                            this.updateHandHistory(hand);
+                           
+                            // Play sound if gesture changed or is a swipe
+                            this.handleGesture(gesture);
+                           
+                            // Visual feedback (optional: draw hand landmarks)
+                            this.drawHandLandmarks(hand);
+                           
+                        } else {
+                            // No hand detected
+                            this.currentGesture = 'none';
+                            this.gestureElement.textContent = 'No hand detected';
+                        }
+                    }
+                   
+                    // Continue detection loop
+                    requestAnimationFrame(detectFrame);
+                };
+               
+                detectFrame();
+            }
+
+            /**
+             * GESTURE CLASSIFICATION LOGIC
+             *
+             * Analyzes hand landmark positions to determine current gesture.
+             * Uses finger tip and joint positions to calculate finger extension.
+             * Improved logic to reduce false open palm detections.
+             *
+             * @param {Object} hand - HandPose prediction object with landmarks
+             * @returns {string} - Detected gesture name
+             */
+            classifyGesture(hand) {
+                const landmarks = hand.landmarks;
+               
+                // Calculate finger extension states
+                const fingerStates = this.getFingerStates(landmarks);
+               
+                // Count extended fingers
+                const extendedCount = fingerStates.filter(extended => extended).length;
+               
+                // Additional checks to improve accuracy
+                const thumbExtended = fingerStates[0];
+                const indexExtended = fingerStates[1];
+                const middleExtended = fingerStates[2];
+                const ringExtended = fingerStates[3];
+                const pinkyExtended = fingerStates[4];
+               
+                // IMPROVED GESTURE CLASSIFICATION RULES:
+               
+                // 1. POINT: Only index finger extended (very specific)
+                if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+                    return 'point';
+                }
+               
+                // 2. FIST: Very few or no fingers extended
+                if (extendedCount <= 1) {
+                    return 'fist';
+                }
+               
+                // 3. OPEN PALM: All main fingers extended (more strict)
+                if (indexExtended && middleExtended && ringExtended && extendedCount >= 4) {
+                    return 'open_palm';
+                }
+               
+                // 4. If 2-3 fingers extended but not matching point or palm, default to fist
+                // This reduces false open palm detections
+                if (extendedCount >= 2 && extendedCount <= 3) {
+                    return 'fist';
+                }
+               
+                // Default fallback
+                return 'fist'; // Changed from 'unknown' to reduce confusion
+            }
+
+            /**
+             * FINGER STATE DETECTION
+             *
+             * Determines if each finger is extended or curled based on landmark positions.
+             * Compares fingertip position with intermediate joint positions.
+             * Improved thresholds for better accuracy.
+             *
+             * @param {Array} landmarks - Array of 21 hand landmarks [x, y, z]
+             * @returns {Array} - Boolean array for each finger's extension state
+             */
+            getFingerStates(landmarks) {
+                // Hand landmark indices for fingertips and joints
+                const fingerTips = [4, 8, 12, 16, 20]; // Thumb, Index, Middle, Ring, Pinky tips
+                const fingerJoints = [3, 6, 10, 14, 18]; // Corresponding joints
+               
+                const fingerStates = [];
+               
+                for (let i = 0; i < 5; i++) {
+                    const tip = landmarks[fingerTips[i]];
+                    const joint = landmarks[fingerJoints[i]];
+                   
+                    // Calculate distance between tip and joint
+                    const distance = Math.sqrt(
+                        Math.pow(tip[0] - joint[0], 2) +
+                        Math.pow(tip[1] - joint[1], 2)
+                    );
+                   
+                    // Improved thresholds for better detection
+                    let extensionThreshold;
+                    if (i === 0) { // Thumb
+                        extensionThreshold = 35;
+                    } else if (i === 1) { // Index finger
+                        extensionThreshold = 40; // Higher threshold for index
+                    } else { // Other fingers
+                        extensionThreshold = 35;
+                    }
+                   
+                    fingerStates.push(distance > extensionThreshold);
+                }
+               
+                return fingerStates;
+            }
+
+            /**
+             * HAND MOVEMENT TRACKING
+             *
+             * Maintains history of hand positions for swipe gesture detection.
+             * Tracks center point of hand over time.
+             *
+             * @param {Object} hand - HandPose prediction object
+             */
+            updateHandHistory(hand) {
+                // Calculate hand center (average of all landmarks)
+                const landmarks = hand.landmarks;
+                const centerX = landmarks.reduce((sum, point) => sum + point[0], 0) / landmarks.length;
+                const centerY = landmarks.reduce((sum, point) => sum + point[1], 0) / landmarks.length;
+               
+                // Add to history
+                this.handHistory.push({ x: centerX, y: centerY, timestamp: Date.now() });
+               
+                // Keep history within size limit
+                if (this.handHistory.length > this.maxHistoryLength) {
+                    this.handHistory.shift();
+                }
+            }
+
+            /**
+             * SWIPE GESTURE DETECTION
+             *
+             * Analyzes hand movement history to detect horizontal swipes.
+             * Improved algorithm considers both distance and speed for better detection.
+             *
+             * @returns {boolean} - True if swipe detected
+             */
+            detectSwipe() {
+                if (this.handHistory.length < 4) return false;
+               
+                const recent = this.handHistory[this.handHistory.length - 1];
+                const oldest = this.handHistory[0];
+               
+                // Calculate horizontal movement and time
+                const horizontalMovement = Math.abs(recent.x - oldest.x);
+                const verticalMovement = Math.abs(recent.y - oldest.y);
+                const timeSpan = recent.timestamp - oldest.timestamp;
+               
+                // Calculate speed (pixels per millisecond)
+                const speed = horizontalMovement / timeSpan;
+               
+                // Swipe detection criteria:
+                // 1. Significant horizontal movement
+                // 2. Movement is more horizontal than vertical
+                // 3. Fast enough speed
+                // 4. Recent movement (within time window)
+                const isHorizontalMovement = horizontalMovement > verticalMovement * 1.5;
+                const isFastEnough = speed > this.swipeMinSpeed;
+                const isRecentMovement = timeSpan < 600;
+                const isBigEnoughMovement = horizontalMovement > this.swipeThreshold;
+               
+                return isHorizontalMovement && isFastEnough && isRecentMovement && isBigEnoughMovement;
+            }
+
+            /**
+             * GESTURE HANDLING AND SOUND PLAYBACK
+             *
+             * Processes detected gestures and triggers appropriate drum sounds.
+             * Includes multiple debouncing systems to prevent rapid repeated triggers:
+             * - Gesture-specific debouncing (prevents same gesture spam)
+             * - Global sound cooldown (prevents any sound spam)
+             *
+             * @param {string} gesture - Detected gesture name
+             */
+            handleGesture(gesture) {
+                const currentTime = Date.now();
+                let soundToPlay = null;
+               
+                // Global cooldown check - prevent ANY sound from playing too frequently
+                if (currentTime - this.lastSoundTime < this.soundCooldown) {
+                    return; // Skip if still in global cooldown
+                }
+               
+                // Check for swipe gesture first (overrides static gestures)
+                if (this.detectSwipe()) {
+                    gesture = 'swipe';
+                    this.handHistory = []; // Clear history after swipe
+                }
+               
+                // Map gestures to sounds
+                switch (gesture) {
+                    case 'fist':
+                        soundToPlay = 'snare';
+                        break;
+                    case 'point':
+                        soundToPlay = 'hihat';
+                        break;
+                    case 'open_palm':
+                        soundToPlay = 'kick';
+                        break;
+                    case 'swipe':
+                        soundToPlay = 'crash';
+                        break;
+                }
+               
+                // Play sound if:
+                // 1. We have a sound to play
+                // 2. AND (gesture changed OR enough time passed since same gesture)
+                // 3. AND enough time passed since any sound
+                if (soundToPlay && (
+                    this.currentGesture !== gesture ||
+                    currentTime - this.lastGestureTime > this.gestureDebounceDelay
+                )) {
+                    this.playSound(soundToPlay);
+                    this.currentGesture = gesture;
+                    this.lastGestureTime = currentTime;
+                    this.lastSoundTime = currentTime; // Update global sound timer
+                   
+                    // Update UI
+                    this.gestureElement.textContent = `${this.getGestureEmoji(gesture)} ${gesture.replace('_', ' ').toUpperCase()}`;
+                }
+            }
+
+            /**
+             * SOUND PLAYBACK SYSTEM
+             *
+             * Plays drum sounds using Howler.js with overlap support.
+             * Each sound can play multiple times simultaneously.
+             *
+             * @param {string} soundName - Name of sound to play
+             */
+            playSound(soundName) {
+                if (this.sounds[soundName]) {
+                    // Play sound (multiple instances can overlap)
+                    this.sounds[soundName].play();
+                    console.log(`Playing: ${soundName}`);
+                } else {
+                    console.warn(`Sound not found: ${soundName}`);
+                }
+            }
+
+            /**
+             * UI HELPER METHODS
+             */
+           
+            getGestureEmoji(gesture) {
+                const emojis = {
+                    'fist': '✊',
+                    'point': '👆',
+                    'open_palm': '✋',
+                    'swipe': '👋'
+                };
+                return emojis[gesture] || '❓';
+            }
+
+            updateStatus(message, isError = false) {
+                this.statusElement.textContent = message;
+                this.statusElement.className = isError ? 'status error' : 'status';
+            }
+
+            /**
+             * VISUAL DEBUG HELPERS (Optional)
+             *
+             * Draws hand landmarks on canvas for debugging gesture detection.
+             * Note: Landmarks are automatically mirrored to match flipped video.
+             */
+            drawHandLandmarks(hand) {
+                const landmarks = hand.landmarks;
+               
+                // Draw landmarks as small circles (they'll appear mirrored due to canvas transform)
+                this.ctx.fillStyle = '#00ff00';
+                landmarks.forEach(landmark => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(landmark[0], landmark[1], 3, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                });
+               
+                // Draw connections between landmarks (optional)
+                this.ctx.strokeStyle = '#00ff00';
+                this.ctx.lineWidth = 2;
+                // Add connection drawing logic here if desired
+            }
+        }
+
+        /**
+         * APPLICATION STARTUP
+         *
+         * Initialize the gesture drum kit when page loads.
+         * Waits for DOM to be ready before starting.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for required browser features
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('status').textContent = 'Error: Camera access not supported in this browser';
+                return;
+            }
+           
+            // Create and start the application
+            new GestureDrumKit();
+        });
+
+        /**
+         * ADDING NEW GESTURES - DEVELOPER GUIDE
+         *
+         * To add a new gesture:
+         * 1. Add sound file to sounds folder
+         * 2. Add Howl instance in initSounds() method
+         * 3. Add gesture detection logic in classifyGesture() method
+         * 4. Add gesture-to-sound mapping in handleGesture() method
+         * 5. Add emoji in getGestureEmoji() method
+         *
+         * Example - Adding "peace sign" gesture:
+         *
+         * In classifyGesture():
+         * if (extendedCount === 2 && fingerStates[1] && fingerStates[2]) {
+         *     return 'peace';
+         * }
+         *
+         * In handleGesture():
+         * case 'peace':
+         *     soundToPlay = 'bell';  // assuming bell.wav exists
+         *     break;
+         */
+
+    </script>
+</body>
+</html>
