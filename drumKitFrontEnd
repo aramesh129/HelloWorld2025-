@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirBeats - Gesture Drums</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            background-image: radial-gradient(circle at 2px 2px, #6366f1 2px, transparent 0);
+            background-size: 60px 60px;
+            animation: bgFloat 25s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes bgFloat {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        .container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.3);
+            animation: logoFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+
+        .logo-text {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 20px;
+            color: #a1a1aa;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .description {
+            font-size: 16px;
+            color: #71717a;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Status Panel */
+        .status-panel {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .status-panel:hover {
+            transform: translateY(-2px);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+            animation: pulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: inherit;
+            animation: ping 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        @keyframes ping {
+            0% { transform: scale(1); opacity: 1; }
+            75%, 100% { transform: scale(2); opacity: 0; }
+        }
+
+        .status-indicator.loading {
+            background: #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .status-indicator.error {
+            background: #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .gesture-display {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .gesture-display.active {
+            transform: scale(1.05);
+            box-shadow: 0 16px 32px rgba(99, 102, 241, 0.6);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 32px;
+            align-items: start;
+        }
+
+        /* Camera Section */
+        .camera-section {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .camera-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .video-canvas {
+            width: 100%;
+            height: 400px;
+            background: #000;
+            border-radius: 16px;
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            transform: scaleX(-1);
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .video-canvas:hover {
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+
+        /* Gesture Guide */
+        .gesture-guide {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 20px;
+        }
+
+        .guide-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .gesture-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .gesture-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .gesture-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateX(4px);
+        }
+
+        .gesture-emoji {
+            font-size: 36px;
+            min-width: 48px;
+            text-align: center;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        .gesture-info {
+            flex: 1;
+        }
+
+        .gesture-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: white;
+        }
+
+        .gesture-target {
+            font-size: 14px;
+            color: #a1a1aa;
+            margin-bottom: 8px;
+        }
+
+        .gesture-description {
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.4;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            
+            .gesture-guide {
+                position: relative;
+                top: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .logo-text {
+                font-size: 36px;
+            }
+            
+            .status-panel {
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .gesture-display {
+                width: 100%;
+            }
+            
+            .video-canvas {
+                height: 300px;
+            }
+        }
+
+        .error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🎵</div>
+                <h1 class="logo-text">AirBeats</h1>
+            </div>
+            <p class="subtitle">AI-Powered Gesture Music</p>
+            <p class="description">Create music with hand gestures. Drum mode is ready!</p>
+        </header>
+
+        <div class="status-panel">
+            <div class="status-info">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="status-text" id="statusText">Initializing...</span>
+            </div>
+            <div class="gesture-display" id="gestureDisplay">🤚 Ready</div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-section active" id="drumSection">
+                <div class="camera-section">
+                    <h2 class="camera-title">
+                        <span>📹</span>
+                        Live Gesture Recognition - Drums
+                    </h2>
+                    <canvas id="videoCanvas" class="video-canvas" width="640" height="400"></canvas>
+                </div>
+            </div>
+
+            <div class="gesture-guide">
+                <h2 class="guide-title">
+                    <span>🎯</span>
+                    <span>Drum Guide</span>
+                </h2>
+                
+                <div class="gesture-list">
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">✊</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Fist</div>
+                            <div class="gesture-target">→ Snare Drum</div>
+                            <div class="gesture-description">Close your hand into a tight fist</div>
+                        </div>
+                    </div>
+                    
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">🖐️</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Open Palm</div>
+                            <div class="gesture-target">→ Kick Drum</div>
+                            <div class="gesture-description">Spread all fingers wide open</div>
+                        </div>
+                    </div>
+                    
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">👆</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Point</div>
+                            <div class="gesture-target">→ Hi-Hat</div>
+                            <div class="gesture-description">Point with index finger only - keep other fingers DOWN</div>
+                        </div>
+                    </div>
+                    
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">👋</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Swipe</div>
+                            <div class="gesture-target">→ Crash Cymbal</div>
+                            <div class="gesture-description">Quick horizontal hand movement</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
