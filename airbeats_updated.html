@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirBeats - Gesture Music</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            background-image: radial-gradient(circle at 2px 2px, #6366f1 2px, transparent 0);
+            background-size: 60px 60px;
+            animation: bgFloat 25s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes bgFloat {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        .container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.3);
+            animation: logoFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+
+        .logo-text {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .description {
+            font-size: 16px;
+            color: #71717a;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Mode Switcher */
+        .mode-switcher {
+            display: flex;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            padding: 8px;
+            margin-bottom: 24px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .mode-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            color: #a1a1aa;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .mode-btn:hover:not(.active) {
+            color: white;
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        /* Status Panel */
+        .status-panel {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .status-panel:hover {
+            transform: translateY(-2px);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+            animation: pulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: inherit;
+            animation: ping 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        @keyframes ping {
+            0% { transform: scale(1); opacity: 1; }
+            75%, 100% { transform: scale(2); opacity: 0; }
+        }
+
+        .status-indicator.loading {
+            background: #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .status-indicator.error {
+            background: #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .gesture-display {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 12px 24px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .gesture-display.active {
+            transform: scale(1.05);
+            box-shadow: 0 16px 32px rgba(99, 102, 241, 0.6);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 32px;
+            align-items: start;
+        }
+
+        .mode-section {
+            display: none;
+        }
+
+        .mode-section.active {
+            display: block;
+        }
+
+        /* Camera Section */
+        .camera-section {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .camera-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .video-canvas {
+            width: 100%;
+            height: 400px;
+            background: #000;
+            border-radius: 16px;
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            transform: scaleX(-1);
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .video-canvas:hover {
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+
+        /* Piano Section */
+        .piano-section {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .finger-display {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .finger-status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .finger-status.active {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .finger-emoji {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .finger-name {
+            font-size: 14px;
+            color: #a1a1aa;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .finger-note {
+            font-size: 12px;
+            color: #6366f1;
+            font-weight: 700;
+        }
+
+        .finger-status.active .finger-note {
+            color: white;
+        }
+
+        .piano-keys {
+            display: flex;
+            height: 120px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 16px;
+            gap: 4px;
+            margin-bottom: 24px;
+        }
+
+        .piano-key {
+            flex: 1;
+            background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 16px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .piano-key:hover {
+            background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+        }
+
+        .piano-key.active {
+            background: linear-gradient(to bottom, #6366f1, #4f46e5);
+            color: white;
+            transform: translateY(2px);
+        }
+
+        /* Gesture Guide */
+        .gesture-guide {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 20px;
+        }
+
+        .guide-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .gesture-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .gesture-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .gesture-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateX(4px);
+        }
+
+        .gesture-emoji {
+            font-size: 36px;
+            min-width: 48px;
+            text-align: center;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        .gesture-info {
+            flex: 1;
+        }
+
+        .gesture-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: white;
+        }
+
+        .gesture-target {
+            font-size: 14px;
+            color: #a1a1aa;
+            margin-bottom: 8px;
+        }
+
+        .gesture-description {
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.4;
+        }
+
+        /* Setup Instructions */
+        .setup-note {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .setup-note strong {
+            color: #6366f1;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+           
+            .gesture-guide {
+                position: relative;
+                top: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+           
+            .logo-text {
+                font-size: 36px;
+            }
+           
+            .status-panel {
+                flex-direction: column;
+                gap: 16px;
+            }
+           
+            .gesture-display {
+                width: 100%;
+            }
+           
+            .video-canvas {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+   
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🎵</div>
+                <h1 class="logo-text">AirBeats</h1>
+            </div>
+            <p class="description">Create music with hand gestures. Switch between drums and piano modes!</p>
+        </header>
+
+        <!-- Mode Switcher -->
+        <div class="mode-switcher">
+            <button class="mode-btn active" id="drumMode">
+                <span>🥁</span>
+                Drums
+            </button>
+            <button class="mode-btn" id="pianoMode">
+                <span>🎹</span>
+                Piano
+            </button>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <div class="status-info">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="status-text" id="statusText">Initializing...</span>
+            </div>
+            <div class="gesture-display" id="gestureDisplay">🤚 Ready</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Drum Mode -->
+            <div class="mode-section active" id="drumSection">
+                <div class="camera-section">
+                    <h2 class="camera-title">
+                        <span>📹</span>
+                        Live Gesture Recognition - Drums
+                    </h2>
+                    <canvas id="videoCanvas" class="video-canvas" width="640" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Piano Mode -->
+            <div class="mode-section" id="pianoSection">
+                <div class="piano-section">
+                    <h2 class="camera-title">
+                        <span>🎹</span>
+                        One Hand Piano - 5 Gestures
+                    </h2>
+                   
+                    <div class="finger-display">
+                        <div class="finger-status" data-finger="fist">
+                            <div class="finger-emoji">✊</div>
+                            <div class="finger-name">Closed Fist</div>
+                            <div class="finger-note">C4</div>
+                        </div>
+                        <div class="finger-status" data-finger="index">
+                            <div class="finger-emoji">👆</div>
+                            <div class="finger-name">Index</div>
+                            <div class="finger-note">B4</div>
+                        </div>
+                        <div class="finger-status" data-finger="middle">
+                            <div class="finger-emoji">🖕</div>
+                            <div class="finger-name">Middle</div>
+                            <div class="finger-note">E4</div>
+                        </div>
+                        <div class="finger-status" data-finger="ring">
+                            <div class="finger-emoji">💍</div>
+                            <div class="finger-name">Ring</div>
+                            <div class="finger-note">F4</div>
+                        </div>
+                        <div class="finger-status" data-finger="pinky">
+                            <div class="finger-emoji">🤙</div>
+                            <div class="finger-name">Pinky</div>
+                            <div class="finger-note">G4</div>
+                        </div>
+                    </div>
+                   
+                    <div class="piano-keys">
+                        <div class="piano-key" data-note="C4">C4</div>
+                        <div class="piano-key" data-note="B4">B4</div>
+                        <div class="piano-key" data-note="E4">E4</div>
+                        <div class="piano-key" data-note="F4">F4</div>
+                        <div class="piano-key" data-note="G4">G4</div>
+                    </div>
+                   
+                    <canvas id="pianoCanvas" class="video-canvas" width="640" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Gesture Guide -->
+            <div class="gesture-guide">
+                <h2 class="guide-title">
+                    <span id="guideIcon">🎯</span>
+                    <span id="guideTitle">Drum Guide</span>
+                </h2>
+               
+                <div class="gesture-list" id="gestureList">
+                    <!-- Default drum gestures -->
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">✊</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Fist</div>
+                            <div class="gesture-target">→ Snare Drum</div>
+                            <div class="gesture-description">Close your hand into a tight fist</div>
+                        </div>
+                    </div>
+                   
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">🖐️</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Open Palm</div>
+                            <div class="gesture-target">→ Kick Drum</div>
+                            <div class="gesture-description">Spread all fingers wide open</div>
+                        </div>
+                    </div>
+                   
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">👆</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Point</div>
+                            <div class="gesture-target">→ Hi-Hat</div>
+                            <div class="gesture-description">Point with index finger only</div>
+                        </div>
+                    </div>
+                   
+                    <div class="gesture-item">
+                        <span class="gesture-emoji">👋</span>
+                        <div class="gesture-info">
+                            <div class="gesture-name">Swipe</div>
+                            <div class="gesture-target">→ Crash Cymbal</div>
+                            <div class="gesture-description">Quick horizontal hand movement</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose@0.0.7/dist/handpose.min.js"></script>
+
+    <script>
+        class AirBeatsStudio {
+            constructor() {
+                // DOM elements
+                this.drumCanvas = document.getElementById('videoCanvas');
+                this.drumCtx = this.drumCanvas.getContext('2d');
+                this.pianoCanvas = document.getElementById('pianoCanvas');
+                this.pianoCtx = this.pianoCanvas.getContext('2d');
+                this.statusIndicator = document.getElementById('statusIndicator');
+                this.statusText = document.getElementById('statusText');
+                this.gestureDisplay = document.getElementById('gestureDisplay');
+               
+                // Mode switching elements
+                this.drumModeBtn = document.getElementById('drumMode');
+                this.pianoModeBtn = document.getElementById('pianoMode');
+                this.drumSection = document.getElementById('drumSection');
+                this.pianoSection = document.getElementById('pianoSection');
+                
+                // Current mode
+                this.currentMode = 'drums';
+                this.initializeModeSwitch();
+               
+                // Camera and ML model variables
+                this.video = null;
+                this.model = null;
+                this.isModelLoaded = false;
+               
+                // Gesture tracking variables
+                this.currentGesture = 'none';
+                this.lastGestureTime = 0;
+                this.gestureDebounceDelay = 350;
+                this.lastSoundTime = 0;
+                this.soundCooldown = 350;
+               
+                // Movement tracking for swipe detection + post-swipe delay
+                this.handHistory = [];
+                this.maxHistoryLength = 8;
+                this.swipeThreshold = 80;
+                this.swipeMinSpeed = 0.15;
+                this.swipeDelayTime = 0; // Timestamp when swipe delay ends
+                this.swipeDelayDuration = 2000; // 2 seconds
+               
+                // Piano finger states - now includes fist instead of thumb
+                this.fingerStates = {
+                    fist: false,
+                    index: false,
+                    middle: false,
+                    ring: false,
+                    pinky: false
+                };
+               
+                this.lastFingerStates = { ...this.fingerStates };
+                
+                // Piano note delay tracking
+                this.lastPianoNoteTime = 0;
+                this.pianoNoteDelay = 200; // 200ms delay between piano notes
+               
+                // Sound system
+                this.initializeSounds();
+               
+                // Start the application
+                this.init();
+            }
+
+            /**
+             * MODE SWITCHING
+             */
+            initializeModeSwitch() {
+                this.drumModeBtn.addEventListener('click', () => {
+                    this.currentMode = 'drums';
+                    this.drumModeBtn.classList.add('active');
+                    this.pianoModeBtn.classList.remove('active');
+                    this.drumSection.classList.add('active');
+                    this.pianoSection.classList.remove('active');
+                   
+                    // Update guide
+                    document.getElementById('guideIcon').textContent = '🎯';
+                    document.getElementById('guideTitle').textContent = 'Drum Guide';
+                    document.getElementById('gestureList').innerHTML = `
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">✊</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Fist</div>
+                                <div class="gesture-target">→ Snare Drum</div>
+                                <div class="gesture-description">Close your hand into a tight fist</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">🖐️</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Open Palm</div>
+                                <div class="gesture-target">→ Kick Drum</div>
+                                <div class="gesture-description">Spread all fingers wide open</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">👆</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Point</div>
+                                <div class="gesture-target">→ Hi-Hat</div>
+                                <div class="gesture-description">Point with index finger only</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">👋</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Swipe</div>
+                                <div class="gesture-target">→ Crash Cymbal</div>
+                                <div class="gesture-description">Quick horizontal hand movement</div>
+                            </div>
+                        </div>
+                    `;
+                });
+               
+                this.pianoModeBtn.addEventListener('click', () => {
+                    this.currentMode = 'piano';
+                    this.pianoModeBtn.classList.add('active');
+                    this.drumModeBtn.classList.remove('active');
+                    this.pianoSection.classList.add('active');
+                    this.drumSection.classList.remove('active');
+                   
+                    // Update guide
+                    document.getElementById('guideIcon').textContent = '🎹';
+                    document.getElementById('guideTitle').textContent = 'Piano Guide';
+                    document.getElementById('gestureList').innerHTML = `
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">✊</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Closed Fist</div>
+                                <div class="gesture-target">→ C4 Note</div>
+                                <div class="gesture-description">Close all fingers into a tight fist</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">👆</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Index Curled</div>
+                                <div class="gesture-target">→ B4 Note</div>
+                                <div class="gesture-description">Curl your index finger down from open palm</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">🖕</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Middle Curled</div>
+                                <div class="gesture-target">→ E4 Note</div>
+                                <div class="gesture-description">Curl your middle finger down from open palm</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">💍</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Ring Curled</div>
+                                <div class="gesture-target">→ F4 Note</div>
+                                <div class="gesture-description">Curl your ring finger down from open palm</div>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <span class="gesture-emoji">🤙</span>
+                            <div class="gesture-info">
+                                <div class="gesture-name">Pinky Curled</div>
+                                <div class="gesture-target">→ G4 Note</div>
+                                <div class="gesture-description">Curl your pinky down from open palm</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            /**
+             * SOUND SYSTEM - DRUMS + PIANO (FILE BASED ONLY)
+             */
+            initializeSounds() {
+                // Drum sounds
+                this.drumSounds = {
+                    snare: new Howl({
+                        src: ['sounds/snare.mp3'],
+                        volume: 0.8,
+                        html5: true
+                    }),
+                    hihat: new Howl({
+                        src: ['sounds/hihat.mp3'],
+                        volume: 0.6,
+                        html5: true
+                    }),
+                    kick: new Howl({
+                        src: ['sounds/kick.mp3'],
+                        volume: 1.0,
+                        html5: true
+                    }),
+                    crash: new Howl({
+                        src: ['sounds/crash.mp3'],
+                        volume: 0.7,
+                        html5: true
+                    })
+                };
+
+                // Piano sounds - USING PROVIDED AUDIO FILES
+                this.pianoSounds = {
+                    'C4': new Howl({
+                        src: ['sounds/piano/c4.wav'],
+                        volume: 0.8,
+                        html5: true
+                    }),
+                    'B4': new Howl({
+                        src: ['sounds/piano/b4.wav'],
+                        volume: 0.8,
+                        html5: true
+                    }),
+                    'E4': new Howl({
+                        src: ['sounds/piano/e4.wav'],
+                        volume: 0.8,
+                        html5: true
+                    }),
+                    'F4': new Howl({
+                        src: ['sounds/piano/f4.wav'],
+                        volume: 0.8,
+                        html5: true
+                    }),
+                    'G4': new Howl({
+                        src: ['sounds/piano/g4.wav'],
+                        volume: 0.8,
+                        html5: true
+                    })
+                };
+
+                // Error handling for drum sounds
+                Object.keys(this.drumSounds).forEach(soundName => {
+                    this.drumSounds[soundName].on('loaderror', () => {
+                        console.warn(`Could not load drum sound: ${soundName}.mp3`);
+                    });
+                });
+
+                // Error handling for piano sounds
+                Object.keys(this.pianoSounds).forEach(soundName => {
+                    this.pianoSounds[soundName].on('loaderror', () => {
+                        console.warn(`Could not load piano sound: ${soundName}.mp3`);
+                    });
+                });
+            }
+
+            /**
+             * PLAY PIANO NOTE - FILE BASED ONLY WITH DELAY PREVENTION
+             */
+            playPianoNote(note) {
+                const currentTime = Date.now();
+                
+                // Check if enough time has passed since last piano note
+                if (currentTime - this.lastPianoNoteTime < this.pianoNoteDelay) {
+                    return; // Skip playing if too soon
+                }
+                
+                if (this.pianoSounds[note]) {
+                    this.pianoSounds[note].play();
+                    this.lastPianoNoteTime = currentTime; // Update last play time
+                    console.log(`Playing piano note: ${note}`);
+                } else {
+                    console.warn(`Piano sound not found: ${note}`);
+                }
+            }
+
+            /**
+             * APPLICATION INITIALIZATION
+             */
+            async init() {
+                try {
+                    this.updateStatus('Setting up camera...', 'loading');
+                    await this.setupCamera();
+                   
+                    this.updateStatus('Loading hand detection model...', 'loading');
+                    await this.loadModel();
+                   
+                    this.updateStatus('Ready! Show your hands to the camera');
+                    this.startDetection();
+                   
+                } catch (error) {
+                    this.updateStatus(`Error: ${error.message}`, 'error');
+                    console.error('Initialization error:', error);
+                }
+            }
+
+            /**
+             * UPDATE STATUS WITH STYLING
+             */
+            updateStatus(message, type = 'success') {
+                this.statusText.textContent = message;
+                this.statusIndicator.className = `status-indicator ${type}`;
+            }
+
+            /**
+             * CAMERA SETUP
+             */
+            async setupCamera() {
+                this.video = document.createElement('video');
+                this.video.width = 640;
+                this.video.height = 400;
+                this.video.autoplay = true;
+                this.video.playsInline = true;
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640, max: 640 },
+                        height: { ideal: 400, max: 400 },
+                        facingMode: 'user',
+                        frameRate: { ideal: 30, max: 30 }
+                    }
+                });
+
+                this.video.srcObject = stream;
+               
+                return new Promise(resolve => {
+                    this.video.onloadedmetadata = () => {
+                        console.log('Camera initialized:', this.video.videoWidth, 'x', this.video.videoHeight);
+                        resolve();
+                    };
+                });
+            }
+
+            /**
+             * MODEL LOADING
+             */
+            async loadModel() {
+                try {
+                    await tf.ready();
+                    this.model = await handpose.load();
+                    this.isModelLoaded = true;
+                } catch (error) {
+                    console.error('Error loading model:', error);
+                    this.updateStatus('Error loading hand detection model. Check internet connection.', 'error');
+                    throw error;
+                }
+            }
+
+            /**
+             * MAIN DETECTION LOOP
+             */
+            startDetection() {
+                const detectFrame = async () => {
+                    if (this.video && this.isModelLoaded) {
+                        // Choose canvas based on mode
+                        const canvas = this.currentMode === 'drums' ? this.drumCanvas : this.pianoCanvas;
+                        const ctx = this.currentMode === 'drums' ? this.drumCtx : this.pianoCtx;
+                       
+                        // Mirror canvas drawing
+                        ctx.save();
+                        ctx.scale(-1, 1);
+                        ctx.translate(-640, 0);
+                        ctx.drawImage(this.video, 0, 0, 640, 400);
+                        ctx.restore();
+                       
+                        // Pass video element directly to model
+                        const predictions = await this.model.estimateHands(this.video);
+                       
+                        if (predictions.length > 0) {
+                            const hand = predictions[0];
+                            
+                            if (this.currentMode === 'drums') {
+                                // Drum mode - gesture detection
+                                const gesture = this.classifyGesture(hand);
+                                this.updateHandHistory(hand);
+                                this.handleGesture(gesture);
+                            } else {
+                                // Piano mode - 5 finger detection
+                                this.handlePianoMode(hand);
+                            }
+                            
+                            this.drawHandLandmarks(hand, ctx);
+                        } else {
+                            this.currentGesture = 'none';
+                            this.gestureDisplay.textContent = '🤚 No hands detected';
+                            this.gestureDisplay.classList.remove('active');
+                           
+                            if (this.currentMode === 'piano') {
+                                this.resetPianoFingers();
+                            }
+                        }
+                    }
+                   
+                    requestAnimationFrame(detectFrame);
+                };
+               
+                detectFrame();
+            }
+
+            /**
+             * PIANO MODE HANDLER - SINGLE FINGER/FIST DETECTION
+             */
+            handlePianoMode(hand) {
+                const landmarks = hand.landmarks;
+                
+                // Get current finger states (true = extended, false = curled)
+                const fingerStates = this.getFingerStates(landmarks);
+                
+                // Reset visual states
+                this.resetPianoFingers();
+                
+                // Check for closed fist first (all fingers curled)
+                const extendedCount = fingerStates.filter(extended => extended).length;
+                const isFist = extendedCount <= 1; // Closed fist or nearly closed
+                
+                if (isFist) {
+                    // Closed fist detected - play C4
+                    this.activateFingerAndKey('fist', 'C4');
+                    this.gestureDisplay.textContent = `🎹 FIST - C4`;
+                    this.gestureDisplay.classList.add('active');
+                    return;
+                }
+                
+                // Check individual fingers (index, middle, ring, pinky only)
+                const fingerNames = ['index', 'middle', 'ring', 'pinky'];
+                const noteMap = {
+                    'index': 'B4', 
+                    'middle': 'E4',
+                    'ring': 'F4',
+                    'pinky': 'G4'
+                };
+                
+                // Find which fingers are curled (skip thumb - index 0)
+                const curledFingers = [];
+                for (let i = 1; i < 5; i++) {
+                    const fingerName = fingerNames[i - 1];
+                    const isExtended = fingerStates[i];
+                    const isCurled = !isExtended;
+                    
+                    if (isCurled) {
+                        curledFingers.push({ name: fingerName, note: noteMap[fingerName], index: i });
+                    }
+                }
+                
+                // SINGLE NOTE LIMITATION: Only play if exactly one finger is curled
+                if (curledFingers.length === 1) {
+                    const activeFinger = curledFingers[0];
+                    this.activateFingerAndKey(activeFinger.name, activeFinger.note);
+                    this.gestureDisplay.textContent = `🎹 ${activeFinger.name.toUpperCase()} - ${activeFinger.note}`;
+                    this.gestureDisplay.classList.add('active');
+                } else if (curledFingers.length > 1) {
+                    // Multiple fingers curled - show warning but don't play
+                    this.gestureDisplay.textContent = `🎹 Multiple fingers detected - curl only one`;
+                    this.gestureDisplay.classList.remove('active');
+                } else {
+                    // No fingers curled - show ready state
+                    this.gestureDisplay.textContent = '🎹 Open palm - curl finger or make fist';
+                    this.gestureDisplay.classList.remove('active');
+                }
+            }
+
+            /**
+             * ACTIVATE FINGER AND CORRESPONDING PIANO KEY
+             */
+            activateFingerAndKey(fingerName, note) {
+                // Activate finger display
+                const fingerElement = document.querySelector(`[data-finger="${fingerName}"]`);
+                if (fingerElement) {
+                    fingerElement.classList.add('active');
+                }
+                
+                // Play note if this finger state changed from extended to curled
+                const wasActive = this.fingerStates[fingerName];
+                if (!wasActive) {
+                    this.playPianoNote(note); // Now includes delay prevention
+                    
+                    // Visual feedback on piano keys
+                    const keyElement = document.querySelector(`[data-note="${note}"]`);
+                    if (keyElement) {
+                        keyElement.classList.add('active');
+                        setTimeout(() => {
+                            keyElement.classList.remove('active');
+                        }, 300);
+                    }
+                }
+                
+                this.fingerStates[fingerName] = true;
+            }
+
+            /**
+             * RESET ALL PIANO FINGERS
+             */
+            resetPianoFingers() {
+                // Reset finger states
+                this.fingerStates = {
+                    fist: false,
+                    index: false,
+                    middle: false,
+                    ring: false,
+                    pinky: false
+                };
+                
+                // Reset visual states
+                const fingerElements = document.querySelectorAll('.finger-status');
+                fingerElements.forEach(element => {
+                    element.classList.remove('active');
+                });
+            }
+
+            /**
+             * GESTURE CLASSIFICATION - FOR DRUMS
+             */
+            classifyGesture(hand) {
+                const landmarks = hand.landmarks;
+                const fingerStates = this.getFingerStates(landmarks);
+                const extendedCount = fingerStates.filter(extended => extended).length;
+               
+                const indexExtended = fingerStates[1];
+                const middleExtended = fingerStates[2];
+                const ringExtended = fingerStates[3];
+                const pinkyExtended = fingerStates[4];
+               
+                // Point: Only index finger extended
+                if (indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+                    return 'point';
+                }
+               
+                // Fist: Very few or no fingers extended
+                if (extendedCount <= 1) {
+                    return 'fist';
+                }
+               
+                // Open Palm: All main fingers extended
+                if (indexExtended && middleExtended && ringExtended && extendedCount >= 4) {
+                    return 'open_palm';
+                }
+               
+                // Default to fist for 2-3 fingers
+                if (extendedCount >= 2 && extendedCount <= 3) {
+                    return 'fist';
+                }
+               
+                return 'fist';
+            }
+
+            /**
+             * FINGER STATE DETECTION - IMPROVED THUMB THRESHOLD
+             */
+            getFingerStates(landmarks) {
+                const fingerTips = [4, 8, 12, 16, 20];
+                const fingerJoints = [3, 6, 10, 14, 18];
+                const fingerStates = [];
+               
+                for (let i = 0; i < 5; i++) {
+                    const tip = landmarks[fingerTips[i]];
+                    const joint = landmarks[fingerJoints[i]];
+                   
+                    const distance = Math.sqrt(
+                        Math.pow(tip[0] - joint[0], 2) +
+                        Math.pow(tip[1] - joint[1], 2)
+                    );
+                   
+                    let extensionThreshold;
+                    if (i === 0) {
+                        // THUMB: Much higher threshold to prevent false detection
+                        extensionThreshold = 50; // Increased from 35
+                    } else if (i === 1) {
+                        extensionThreshold = 40; // Index finger
+                    } else {
+                        extensionThreshold = 35; // Other fingers
+                    }
+                   
+                    fingerStates.push(distance > extensionThreshold);
+                }
+               
+                return fingerStates;
+            }
+
+            /**
+             * HAND MOVEMENT TRACKING
+             */
+            updateHandHistory(hand) {
+                const landmarks = hand.landmarks;
+                const centerX = landmarks.reduce((sum, point) => sum + point[0], 0) / landmarks.length;
+                const centerY = landmarks.reduce((sum, point) => sum + point[1], 0) / landmarks.length;
+               
+                this.handHistory.push({ x: centerX, y: centerY, timestamp: Date.now() });
+               
+                if (this.handHistory.length > this.maxHistoryLength) {
+                    this.handHistory.shift();
+                }
+            }
+
+            /**
+             * SWIPE DETECTION
+             */
+            detectSwipe() {
+                if (this.handHistory.length < 4) return false;
+               
+                const recent = this.handHistory[this.handHistory.length - 1];
+                const oldest = this.handHistory[0];
+               
+                const horizontalMovement = Math.abs(recent.x - oldest.x);
+                const verticalMovement = Math.abs(recent.y - oldest.y);
+                const timeSpan = recent.timestamp - oldest.timestamp;
+                const speed = horizontalMovement / timeSpan;
+               
+                const isHorizontalMovement = horizontalMovement > verticalMovement * 1.5;
+                const isFastEnough = speed > this.swipeMinSpeed;
+                const isRecentMovement = timeSpan < 600;
+                const isBigEnoughMovement = horizontalMovement > this.swipeThreshold;
+               
+                return isHorizontalMovement && isFastEnough && isRecentMovement && isBigEnoughMovement;
+            }
+
+            /**
+             * GESTURE HANDLING - FOR DRUMS (WITH SWIPE DELAY)
+             */
+            handleGesture(gesture) {
+                const currentTime = Date.now();
+                let soundToPlay = null;
+               
+                // Check if we're still in swipe delay period
+                if (currentTime < this.swipeDelayTime) {
+                    this.gestureDisplay.textContent = '🥁 Swipe cooldown...';
+                    this.gestureDisplay.classList.remove('active');
+                    return; // Block all input during swipe delay
+                }
+               
+                if (currentTime - this.lastSoundTime < this.soundCooldown) {
+                    return;
+                }
+               
+                if (this.detectSwipe()) {
+                    gesture = 'swipe';
+                    this.handHistory = [];
+                    // Set 2-second delay after swipe
+                    this.swipeDelayTime = currentTime + this.swipeDelayDuration;
+                }
+               
+                switch (gesture) {
+                    case 'fist':
+                        soundToPlay = 'snare';
+                        break;
+                    case 'point':
+                        soundToPlay = 'hihat';
+                        break;
+                    case 'open_palm':
+                        soundToPlay = 'kick';
+                        break;
+                    case 'swipe':
+                        soundToPlay = 'crash';
+                        break;
+                }
+               
+                if (soundToPlay && (
+                    this.currentGesture !== gesture ||
+                    currentTime - this.lastGestureTime > this.gestureDebounceDelay
+                )) {
+                    this.playSound(soundToPlay);
+                    this.currentGesture = gesture;
+                    this.lastGestureTime = currentTime;
+                    this.lastSoundTime = currentTime;
+                   
+                    this.gestureDisplay.textContent = `${this.getGestureEmoji(gesture)} ${gesture.replace('_', ' ').toUpperCase()}`;
+                    this.gestureDisplay.classList.add('active');
+                   
+                    setTimeout(() => {
+                        this.gestureDisplay.classList.remove('active');
+                    }, 300);
+                }
+            }
+
+            /**
+             * SOUND PLAYBACK - DRUMS ONLY
+             */
+            playSound(soundName) {
+                if (this.drumSounds[soundName]) {
+                    this.drumSounds[soundName].play();
+                    console.log(`Playing drum: ${soundName}`);
+                } else {
+                    console.warn(`Drum sound not found: ${soundName}`);
+                }
+            }
+
+            /**
+             * UI HELPERS
+             */
+            getGestureEmoji(gesture) {
+                const emojis = {
+                    'fist': '✊',
+                    'point': '👆',
+                    'open_palm': '✋',
+                    'swipe': '👋'
+                };
+                return emojis[gesture] || '❓';
+            }
+
+            /**
+             * HAND LANDMARKS DRAWING
+             */
+            drawHandLandmarks(hand, ctx) {
+                const landmarks = hand.landmarks;
+               
+                ctx.fillStyle = '#6366f1';
+                landmarks.forEach(landmark => {
+                    ctx.beginPath();
+                    ctx.arc(landmark[0], landmark[1], 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+        }
+
+        /**
+         * APPLICATION STARTUP
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('statusText').textContent = 'Error: Camera access not supported in this browser';
+                document.getElementById('statusIndicator').className = 'status-indicator error';
+                return;
+            }
+           
+            new AirBeatsStudio();
+        });
+
+    </script>
+</body>
+</html>
